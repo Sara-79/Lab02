@@ -1,0 +1,115 @@
+---
+title: "Sarah_Mya_Megi- Lab02"
+author: "Sarah Mya Megi"
+date: "9/20/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+cars <- read.csv("data/bad-drivers.csv")
+names(cars) <- c("State", "Collisions", "Speeding", "Alcohol", "Distracted", "No_Accidents", "Insurance", "Losses")
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+cars_vars <- c("Collisions", "Speeding", "Alcohol", "Distracted", "No_Accidents", "Losses", "Insurance")
+ggpairs(cars %>% select(cars_vars))
+```
+We focused on the Losses (x) and Insurance(y) scatterplot; this plot was the only we we could observe that that a somewhat trend occurring. 
+
+
+# Regression Analysis
+```{r}
+lm_fit <- lm(Insurance ~ Losses, data = cars)
+summary(lm_fit)
+```
+
+```{r}
+reg01 <- function(x){
+  predict(lm_fit, data.frame(Losses = x))}
+
+lm_fit2 <- lm(Insurance ~ Losses + Collisions + Speeding + Alcohol + Distracted + No_Accidents, data = cars)
+summary(lm_fit2)
+
+reg02 <- function(x) {
+  predict(quad_fit, data.frame(Losses = x))}
+```
+
+```{r}
+set.seed(7304)
+cars_val_inds <-  caret:: createDataPartition(
+  y = cars$Insurance,
+  p  = 0.8
+  )
+
+cars_val_inds
+
+cars_train_val <- cars %>% slice(cars_val_inds[[1]])
+cars_test <- cars %>% slice(-cars_val_inds [[1]])
+
+num_crossval_folds <- 5
+crossval_folds_inds <- caret::createFolds(
+  y = cars_train_val$Insurance,
+  k = num_crossval_folds
+)
+
+train_val_mse <- expand.grid(
+  i = seq_len(5),
+  simple_val_mse = NA,
+  multiple_val_mse = NA
+)
+
+for(i in seq_len(5)) {
+  
+    cars_train <- cars_train_val %>% slice(-crossval_folds_inds[[i]])
+    cars_val <- cars_train_val %>% slice(crossval_folds_inds[[i]])
+    
+    fit <- lm(Insurance ~ Losses, data = cars_train)
+    train_resids <- cars_val$Insurance - predict(fit, newdata = cars_val)
+    train_val_mse$simple_val_mse[i] <- mean(train_resids^2)
+    
+    fit <- lm(Insurance ~ Losses + Collisions + Speeding + Alcohol + Distracted + No_Accidents, data = cars_train)
+    train_resids <- cars_val$Insurance - predict(fit, newdata = cars_val)
+    train_val_mse$multiple_val_mse[i] <- mean(train_resids^2)
+  }
+
+```
+
+```{r}
+head(train_val_mse)
+```
+
+```{r}
+summarized_crossval_mse_results <- train_val_mse %>%
+  summarize(
+    crossval_mse = mean(simple_val_mse)
+  )
+summarized_crossval_mse_results
+
+summarized_crossval_mse_results <- train_val_mse %>%
+  summarize(
+    crossval_mse = mean(multiple_val_mse)
+  )
+summarized_crossval_mse_results
+```
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
